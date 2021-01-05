@@ -1,49 +1,36 @@
-import evdev
-from evdev import ecodes
+import asyncio
+import logging
 
-from gpiozero import LED
+# import evdev
+# from gpiozero import LED
+
+from src import FakeController, ControlFlattener, ControlStrategy, XYPointer, PositionController, Stepper, Commander, \
+    StdOutPinsRender, RaspberyPinsRender
+
+logging.basicConfig()
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 
-class Render:
-    def __init__(self, pinout):
-        self._pinout = [pin for pin in pinout]
+async def main():
+    s1 = PositionController(Stepper(StdOutPinsRender([1, 2, 3, 4])))
+    s2 = PositionController(Stepper(StdOutPinsRender([1, 2, 3, 4])))
+    # s1 = PositionController(Stepper(RaspberyPinsRender([LED(12), LED(16), LED(20), LED(21)])))
+    # s2 = PositionController(Stepper(RaspberyPinsRender([LED(6), LED(13), LED(19), LED(26)])))
 
-    def __call__(self, state):
-        for idx, pin in enumerate(self._pinout):
-            pin.on() if state[idx] else pin.off()
+    c = ControlStrategy(
+        XYPointer(s1, s2),
+        Commander(FakeController('any_path'), ControlFlattener())
+        # Commander(GamePadController(evdev.list_devices()[0]), ControlFlattener())
+    )
 
-
-class Stepper:
-    def __init__(self, render):
-        self._render = render
-        self._state = [1, 1, 0, 0]
-
-    def rshift(self):
-        self._state.append(self._state.pop(0))
-        self._render(self._state)
-
-    def lshift(self):
-        self._state.insert(0, self._state.pop())
-        self._render(self._state)
+    await asyncio.gather(
+        s1.run(),
+        s2.run(),
+        c.run(),
+    )
 
 
 if __name__ == '__main__':
-
-    print(f'{evdev.list_devices()=}')
-    controller = evdev.InputDevice(evdev.list_devices()[0])
-
-    s1 = Stepper(Render([LED(12), LED(16), LED(20), LED(21)]))
-    s2 = Stepper(Render([LED(6), LED(13), LED(19), LED(26)]))
-
-    for event in controller.read_loop():
-        print(f'{event=}')
-        print(f'{event.code=}, {event.type=}, {event.value=}')
-        if event.code == 308 and event.type == 1 and event.value == 1:
-            s1.rshift()
-        elif event.code == 304 and event.type == 1 and event.value == 1:
-            s1.lshift()
-
-        if event.code == 307 and event.type == 1 and event.value == 1:
-            s2.rshift()
-        elif event.code == 305 and event.type == 1 and event.value == 1:
-            s2.lshift()
+    asyncio.run(main())
