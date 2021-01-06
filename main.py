@@ -3,10 +3,10 @@ import logging
 
 # import evdev
 # from gpiozero import LED
-# from src import RaspberyPinsRender
+# from src import RaspberyPinsRender, GamePadController
 
 from src import FakeController, ControlFlattener, ControlStrategy, XYPointer, PositionController, Stepper, Commander, \
-    StdOutPinsRender, RaspberyPinsRender
+    StdOutPinsRender
 
 logging.basicConfig()
 
@@ -15,6 +15,12 @@ logger.setLevel(logging.DEBUG)
 
 
 async def main():
+    #logging.getLogger('stepper_driver').setLevel(logging.INFO)
+    #logging.getLogger('gamepad').setLevel(logging.INFO)
+    #logging.getLogger('laser_pointer').setLevel(logging.INFO)
+    #logging.getLogger('commander').setLevel(logging.INFO)
+    #logging.getLogger('control_strategy').setLevel(logging.INFO)
+
     s1 = PositionController(Stepper(StdOutPinsRender([1, 2, 3, 4])))
     s2 = PositionController(Stepper(StdOutPinsRender([1, 2, 3, 4])))
     # s1 = PositionController(Stepper(RaspberyPinsRender([LED(12), LED(16), LED(20), LED(21)])))
