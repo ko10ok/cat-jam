@@ -1,9 +1,10 @@
+import logging
 from collections import namedtuple
 
-from pip._internal.utils import logging
-
-from src import FakeInputEvent
 from .controller.fake_gamepad import FakeCommand
+
+logger = logging.getLogger('commander')
+logger.setLevel(logging.DEBUG)
 
 SpeedMoveCommand = namedtuple('SpeedMoveCommand', ['x_speed', 'y_speed'])
 
@@ -12,7 +13,13 @@ class ControlCommandExit:
     pass
 
 
-async def speeds_comand(events) -> SpeedMoveCommand:
+async def abs_max(value, max_value):
+    if value >= 0:
+        return min(value, max_value)
+    else:
+        return max(value, -max_value)
+
+async def speeds_command(events) -> SpeedMoveCommand:
     # FAKE implementation
     # TODO realization of pointer speed logic with
     # commander cant do pure speed, hust controller speed.
@@ -46,7 +53,31 @@ async def speeds_comand(events) -> SpeedMoveCommand:
         # both selected case skipped
         h_speed = 0
 
+    # panel_event = events.get(290, None)
+    # v_panel_value = events.get(3, None)
+    # h_panel_value = events.get(4, None)
+    # if panel_event and panel_event.type == 1 and panel_event.value == 1 and v_panel_value and v_panel_value.type == 3:
+    #     v_speed = v_panel_value.value / (2 ** 15 - 1) * 100
+    # if panel_event and panel_event.type == 1 and panel_event.value == 1 and h_panel_value and h_panel_value.type == 3:
+    #     h_speed = h_panel_value.value / (2 ** 15 - 1) * 100
+    # if panel_event and panel_event.type == 1 and panel_event.type == 0:
+    #     v_speed = 0
+    #     h_speed = 0
+
+    v_joystick = events.get(0, None)
+    h_joystick = events.get(1, None)
+    if v_joystick and v_joystick.type == 3:
+        v_speed = await abs_max(v_joystick.value, 21_000) / (21_000) * 100
+    if h_joystick and h_joystick.type == 3:
+        h_speed = await abs_max(h_joystick.value, 21_000) / (21_000) * 100
+
     return SpeedMoveCommand(h_speed, v_speed)
+
+
+async def filter_zeroes(event):
+    if event.code == 0 and event.type == 0 and event.value == 0:
+        return {None: None}
+    return {event.code: event}
 
 
 class ControlFlattener:
@@ -54,23 +85,29 @@ class ControlFlattener:
         self.events = {}
 
     async def cleanup_not_pressed(self):
+        if 290 in self.events and self.events[290].type == 1 and self.events[290].value == 0:
+            if 3 in self.events:
+                self.events.pop(3)
+            if 4 in self.events:
+                self.events.pop(4)
+
         self.events = {
             key: event
             for key, event in self.events.items()
             if not ((
-                    key in [308, 307, 305, 304]
-                    and event.type == 1 and event.value == 0
-            ) or (
-                    key in [290, 289]
-                    and event.type == 1 and event.value == 0
-            ))
+                            key in [308, 307, 305, 304]
+                            and event.type == 1 and event.value == 0
+                    ) or (
+                            key in [290, 289]
+                            and event.type == 1 and event.value == 0
+                    ))
         }
-        logging.getLogger().debug(f'cleaned up events: {self.events}')
 
+        logger.debug(f'cleaned up events: {self.events}')
 
-    def __call__(self, event):
-        self.events[event.code] = event
-        logging.getLogger().debug(f'result events: {self.events}')
+    async def __call__(self, event):
+        self.events.update(await filter_zeroes(event))
+        logger.debug(f'result events: {self.events}')
         return self.events
 
 
@@ -82,21 +119,19 @@ class Commander:
 
     async def commands(self):
         async for event in self._controller.events():
-            logging.getLogger().debug(f'controller event={event}')
+            logger.debug(f'controller event={event}')
             if isinstance(event, FakeCommand):
                 await event()
                 continue
 
-            logging.getLogger().debug(f'fake event: {event}')
+            logger.debug(f'fake event: {event}')
             if event.code == 315 and event.type == 1 and event.value == 1:
                 yield ControlCommandExit()
                 return
 
-            events = self._events_flattener(event)
-            yield await speeds_comand(events)
+            events = await self._events_flattener(event)
+            yield await speeds_command(events)
             await self._events_flattener.cleanup_not_pressed()
-
-
 
 # log of finger 1-session
 #

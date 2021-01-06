@@ -1,8 +1,10 @@
+import logging
 from asyncio import sleep
 from itertools import cycle
 from time import time
 
-from pip._internal.utils import logging
+logger = logging.getLogger('fake_gamepad')
+logger.setLevel(logging.DEBUG)
 
 
 class FakeInputEvent:
@@ -34,13 +36,13 @@ class FakeSleepCommand(FakeCommand):
         self._time = time
 
     async def __call__(self):
-        logging.getLogger().debug('sleepeng')
+        logger.debug('sleepeng')
         await sleep(self._time)
 
 
 class FakeController:
     def __init__(self, path):
-        logging.getLogger().debug(f'path={path}')
+        logger.debug(f'path={path}')
         pass
 
     async def events(self):
@@ -63,18 +65,19 @@ class FakeController:
             FakeInputEvent(305, 1, 0),
             FakeSleepCommand(1),
 
-            FakeInputEvent(289, 3, -100),
-            FakeInputEvent(289, 4, -100),
-            FakeInputEvent(289, 1, 1),
-            FakeInputEvent(289, 1, 1),
+            FakeInputEvent(290, 3, -100),
+            FakeInputEvent(290, 4, -100),
+            FakeInputEvent(290, 1, 1),
             FakeSleepCommand(1),
-            FakeInputEvent(307, 1, 0),
+            FakeInputEvent(290, 3, 1000),
+            FakeInputEvent(290, 4, 1000),
+            FakeInputEvent(290, 1, 1),
             FakeSleepCommand(1),
-            FakeInputEvent(305, 1, 1),
-            FakeSleepCommand(1),
-            FakeInputEvent(305, 1, 0),
+            FakeInputEvent(290, 1, 0),
+            FakeInputEvent(290, 3, -3000),
+            FakeInputEvent(290, 4, -3000),
             FakeSleepCommand(1),
 
-            # FakeInputEvent(315, 1, 1),
+            FakeInputEvent(315, 1, 1),
         ]):
             yield event

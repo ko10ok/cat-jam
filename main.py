@@ -3,6 +3,7 @@ import logging
 
 # import evdev
 # from gpiozero import LED
+# from src import RaspberyPinsRender
 
 from src import FakeController, ControlFlattener, ControlStrategy, XYPointer, PositionController, Stepper, Commander, \
     StdOutPinsRender, RaspberyPinsRender
@@ -19,10 +20,13 @@ async def main():
     # s1 = PositionController(Stepper(RaspberyPinsRender([LED(12), LED(16), LED(20), LED(21)])))
     # s2 = PositionController(Stepper(RaspberyPinsRender([LED(6), LED(13), LED(19), LED(26)])))
 
+    # device = evdev.list_devices()[0]
+    # logging.getLogger().debug(f'device {device}')
+
     c = ControlStrategy(
         XYPointer(s1, s2),
         Commander(FakeController('any_path'), ControlFlattener())
-        # Commander(GamePadController(evdev.list_devices()[0]), ControlFlattener())
+        # Commander(GamePadController(device), ControlFlattener())
     )
 
     await asyncio.gather(
